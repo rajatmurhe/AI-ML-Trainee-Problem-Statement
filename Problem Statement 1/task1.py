@@ -1,9 +1,13 @@
+import os
 import requests
 import sqlite3
 
+base_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(base_dir, "books.db")
+
 url = "https://openlibrary.org/search.json"
 
-search = input("Enter book name or topic: ")
+search = input("Enter book name or topic (press Enter for 'machine learning'): ").strip() or "machine learning"
 
 try:
     response = requests.get(
@@ -20,7 +24,7 @@ try:
 
         print("Books found:", len(books))
 
-        with sqlite3.connect("books.db") as conn:
+        with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""

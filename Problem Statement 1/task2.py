@@ -1,15 +1,27 @@
+import os
+import json
 import requests
 import matplotlib.pyplot as plt
 
-url = input("Enter the API URL: ")
+base_dir = os.path.dirname(os.path.abspath(__file__))
+default_scores_file = os.path.join(base_dir, "scores.json")
+chart_output_file = os.path.join(base_dir, "student_scores.png")
+
+url = input("Enter the API URL (press Enter to use local 'scores.json'): ").strip()
 
 try:
-    response = requests.get(url, timeout=10)
-
-    if response.status_code != 200:
-        print("Could not get student data.")
+    if not url or not url.startswith(("http://", "https://")):
+        data_file = url if (url and os.path.exists(url)) else default_scores_file
+        print(f"Loading student dataset from: {data_file}")
+        with open(data_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
     else:
-        data = response.json()
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            print("Could not get student data from API.")
+            data = []
+        else:
+            data = response.json()
 
         students = []
         marks = []
@@ -32,7 +44,10 @@ try:
 
             print("\nClass Average:", round(average, 2))
 
-            colors = ["green" if mark >= average else "red" for mark in marks]
+            colors = [
+                "green" if mark >= average else "red"
+                for mark in marks
+            ]
 
             plt.figure(figsize=(8, 5))
             plt.bar(students, marks, color=colors)
@@ -50,7 +65,7 @@ try:
             plt.legend()
 
             plt.tight_layout()
-            plt.savefig("student_scores.png")
+            plt.savefig(chart_output_file)
             plt.show()
 
 except requests.RequestException as error:

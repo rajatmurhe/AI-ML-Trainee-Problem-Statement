@@ -1,40 +1,77 @@
+import os
 import csv
 import sqlite3
+import re
 
-file_name = "users.csv"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+file_name = os.path.join(base_dir, "users.csv")
+db_name = os.path.join(base_dir, "users.db")
 
 try:
-    with open(file_name, "r", newline="", encoding="utf-8") as file:
-        reader = csv.DictReader(file)
+    file = open(file_name, "r", newline="", encoding="utf-8")
+    reader = csv.DictReader(file)
 
-        with sqlite3.connect("users.db") as conn:
-            cursor = conn.cursor()
+    if "name" not in reader.fieldnames or "email" not in reader.fieldnames:
+        print("CSV file must contain name and email columns.")
+    else:
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
 
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    email TEXT
-                )
-            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE
+            )
+        """)
 
-            for row in reader:
-                name = row.get("name", "")
-                email = row.get("email", "")
-                cursor.execute(
-                    "INSERT INTO users (name, email) VALUES (?, ?)",
-                    (name, email)
-                )
+        added = 0
 
-            cursor.execute("SELECT * FROM users")
-            users = cursor.fetchall()
+        for user in reader:
+            name = user.get("name", "").strip()
+            email = user.get("email", "").strip()
 
-            print("Users stored in database:")
-            for user in users:
-                print(user)
+            if not name or not email:
+                continue
+
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+                continue
+
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO users (name, email)
+                VALUES (?, ?)
+                """,
+                (name, email)
+            )
+
+            if cursor.rowcount == 1:
+                added += 1
+
+        conn.commit()
+        file.close()
+
+        print("Users added:", added)
+
+        cursor.execute("SELECT id, name, email FROM users")
+        users = cursor.fetchall()
+
+        print("\nUsers in database")
+        print("-" * 45)
+
+        for user in users:
+            print("ID:", user[0])
+            print("Name:", user[1])
+            print("Email:", user[2])
+            print("-" * 45)
+
+        conn.close()
 
 except FileNotFoundError:
-    print("users.csv file not found.")
+    print("CSV file not found:", file_name)
 
 except sqlite3.Error as error:
     print("Database error:", error)
+
+except csv.Error as error:
+    print("CSV file error:", error)
